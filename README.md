@@ -5,10 +5,12 @@
 This repository contains materials for in-class labs and in-class weekly discussions
 
 # Structure
+```
 .
-├── README.md 
+├── README.md
 ├── Weekly_Discussions
 └── Weekly_Labs
+```
 
 # Data access
 All materials can be accessed and downloaded from the [EDS 223 course website](https://eds-223-geospatial.github.io/)
