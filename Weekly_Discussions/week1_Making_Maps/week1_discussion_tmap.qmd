@@ -1,0 +1,106 @@
+---
+title: "Week 1: Discussion"
+subtitle: "Making maps with `tmap` and beyond"
+author: "Courtney Lorey"
+date: 2025-10-2
+---
+
+In this section, we’ll kick-off our mapmaking skills using the tmap package. Your task will be to make a map of Rapa Nui (Easter Island or Isla de Pascua). Rapa Nui is a volcanic island in Polynesia and territory of Chile. It is widely known for monumental statues called moai, but it is also a place of geoscientific inquiry. Several research programs about the island’s volcanic history, petrology, and human-environment interactions exist.
+
+# Learning Objectives
+- Read in spatial objects with st_read() and read_stars()
+- Create map with single spatial object
+- Create map with multiple spatial objects
+- Use different types of tmap plotting formats (e.g. tm_polygons(), tm_fill(), tm_dots(), etc.)
+- Include essential map elements (e.g. scale bar & north arrow or graticules)
+- Create an interactive map
+- Challenge: Reproduce map using ggplot2 instead of tmap
+
+
+```{r}
+# Load the necessary packages
+
+library(here)
+library(tidyverse)
+library(sf)
+library(stars)
+library(tmap)
+```
+
+```{r}
+# Load the data
+
+ei_points <- st_read(here("Weekly_Discussions", "week1_Making_Maps", "data", "ei_points.gpkg")) |> 
+  filter(type == "volcano")
+
+ei_elev <- read_stars(here("Weekly_Discussions", "week1_Making_Maps", "data", "ei_elev.tif"))
+
+ei_borders <- st_read(here("Weekly_Discussions", "week1_Making_Maps", "data", "ei_border.gpkg"))
+
+ei_roads <- st_read(here("Weekly_Discussions", "week1_Making_Maps", "data", "ei_roads.gpkg"))
+```
+
+```{r}
+# Create a map of the outline Rapa Nui using tm_shape() + tm_borders()
+
+tm_shape(ei_borders) + 
+    tm_borders() + 
+    tm_title("Easter Island")
+```
+
+```{r}
+# Create a multiple-object map with tmap
+# …denote the island’s borders and continuous elevation
+# …denote the island’s volcanoes and roads
+# …play with the color palette and essential map elements
+
+tm_shape(ei_elev) + 
+    tm_graticules(col = "lightgray") +
+    tm_raster(col.scale = tm_scale_continuous(values = "-rd_yl_gn"),
+              col.legend = tm_legend(
+                           title = "Elevation (m asl)", 
+                           orientation = "portrait", 
+                           position = tm_pos_out("right")
+                           )
+                           ) + 
+tm_shape(ei_borders) +
+    tm_borders() + 
+tm_shape(ei_roads) +
+    tm_lines() + 
+tm_shape(ei_points) + 
+    tm_symbols(shape = 24, 
+               size = "elevation", 
+               size.legend = tm_legend(title = "Volcanoes (m asl)", orientation = "portrait", position = tm_pos_out("right"))) +
+tm_compass(position = c("right", "top")) +
+tm_scalebar() + 
+tm_title("Easter Island")
+
+```
+
+```{r}
+# Make it interactive! 
+
+tmap_mode("view")
+
+tm_shape(ei_elev) + 
+    tm_raster(col.scale = tm_scale_continuous(values = "-rd_yl_gn"),
+              col.legend = tm_legend(
+                           title = "Elevation (m asl)", 
+                           orientation = "portrait", 
+                           position = tm_pos_out("right")
+                           )
+                           ) + 
+tm_shape(ei_borders) +
+    tm_borders() + 
+tm_shape(ei_roads) +
+    tm_lines() + 
+tm_shape(ei_points) + 
+    tm_symbols(shape = 24, 
+               fill = "black",
+               size = "elevation", 
+               size.legend = tm_legend(title = "Volcanoes (m asl)", orientation = "portrait", position = tm_pos_out("right"))) +
+tm_compass() +
+tm_scalebar() + 
+tm_title("Easter Island")
+
+```
