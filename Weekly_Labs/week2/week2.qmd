@@ -1,7 +1,7 @@
 ---
 title: "Week 2 Lab"
 subtitle: "Intro to vector data with `sf` and coordinate reference systems"
-author: "Your Name"
+author: "Courtney Lorey"
 date: last-modified
 format:
   html:
@@ -57,27 +57,43 @@ Let's start by looking at how we can construct a `sf` object. Typically we will 
 First, we create a geometry for London by supplying a point and coordinate reference system.
 
 ```{r}
+# Create st_point with longitude and latitude from London
+london_point <- st_point(c(0.1, 51.5))
 
-
+# Add coordinate reference system
+london_geom <- st_sfc(london_point, crs = 4326)
 ```
 
 Then, we supply some non-geographic attributes by creating a data frame with attributes about London.
 
 ```{r}
-
+# Create dataframe of attributes about London 
+london_attrib <- data.frame(
+  name = "London",
+  temperature = 25,
+  date = as.Date("2017-06-2021")
+)
 ```
 
 And we attach the simple feature collection and data frame to create a `sf` object. Check out the class of the new object we created.
 
 ```{r}
-
-
+# Combine geometry and dataframe
+london_sf <- st_sf(london_attrib, geometry = london_geom)
 ```
 
 We can also check out what the CRS looks like:
 
 ```{r}
+# Check class
+class(london_sf)
 
+# Check crs
+st_crs(london_sf)
+
+st_crs(london_sf)$IsGeographic
+
+st_crs(london_sf)$proj4string
 ```
 
 ### Existing `sf` object
@@ -85,24 +101,32 @@ We can also check out what the CRS looks like:
 Now let's look at an existing `sf` object representing countries of the world:
 
 ```{r}
-
+world <- spData::world
+class(world)
 ```
 
 We can see that this object contains both spatial data (`geom` column) and attributes about those geometries. We can perform operations on the attribute data, just like we would with a normal data frame.
 
 ```{r}
+dim(world)
+names(world)
+summary(world$lifeExp)
 ```
 
 The geometry column is "sticky", meaning it will stick around unless we explicitly get rid of it. For example, `dplyr`'s `select()` function won't get rid of it.
 
 ```{r}
+world_df <- world |> 
+  select(-geom)
 
+names(world_df)
 ```
 
 To drop the `geom` column and convert this `sf` object into a data frame, we need to drop the geometry column using the `st_drop_geometry()`.
 
 ```{r include=TRUE}
-
+world_df <- st_drop_geometry(world)
+names(world_df)
 ```
 
 ::: {.callout-tip icon="true"}
@@ -123,33 +147,43 @@ R handles coordinate reference systems using multiple formats:
 
 ### Reprojecting data
 
-In some cases we will be working with data which is represented with different coordinate reference systems (CRS). Whenever we work with multiple spatial data objects, we need to check that the CRSs match.
+MAJOR TAKEAWAY: In some cases we will be working with data which is represented with different coordinate reference systems (CRS). Whenever we work with multiple spatial data objects, we need to check that the CRSs match.
 
 Let's create another `sf` object for London, but now represented with a project coordinate system.
 
 ```{r}
-
+london_proj <- data.frame(x = 530000, y = 180000) |> 
+  st_as_sf(coords = c("x", "y"), crs = "EPSG:27700")
 ```
 
 We can check the CRS of any data using the `st_crs()` function.
 
 ```{r}
+st_crs(london_proj)
 ```
 
 This is a lot of information to read, so if we wanted to use this point with our other London point, we need to check to see if they are using the same CRS.
 
 ```{r}
+st_crs(london_proj) == st_crs(london_sf)
 ```
 
 To transform the CRS of a dataset, we use the `st_transform()` function. In the `crs` argument, we need to specify the coordinate reference system. We can do this by either supplying a CRS code or specifying the CRS of another dataset using the `st_crs()` function.
 
 ```{r}
+london_sf_transform <- st_transform(london_sf, crs = st_crs(london_proj))
 ```
 
 Now if we check, the CRS between the two datasets should match
 
 ```{r}
+# Copy/paste: can use this if statement to check that crs matches throughout the quarter
 
+if(st_crs(london_sf_transform) == st_crs(london_proj)) {
+  print("It's a match!")
+} else {
+  print("Still not a match")
+}
 ```
 
 ::: {.callout-tip icon="true"}
@@ -182,7 +216,22 @@ Let's compare global maps using two different projections:
 -   Mercator is a conformal cylindrical map that preserves angles (EPSG 3395)
 
 ```{r}
+# One way to make map: by specifying crs
+display_crs <- tm_shape(world, crs = 8857) + 
+  tm_fill(fill = "area_km2")
 
+m_3395 <- tm_shape(world, crs = 3395) +
+  tm_fill(fill = "area_km2")
+
+tmap_arrange(display_crs, m_3395)
+
+# Another way to make map: by transforming crs 
+world_transformed <- st_transform(world, crs = 8857)
+
+transformed_crs <- tm_shape(world_transformed) + 
+  tm_fill(fill = "area_km2")
+
+tmap_arrange(display_crs, transformed_crs)
 ```
 
 ## 4. Vector attribute subsetting
@@ -196,26 +245,36 @@ This means that we can use all of our favorite `dplyr` functions on `sf` objects
 We can select columns...
 
 ```{r}
-
+world |> 
+  select(name_long, pop)
 ```
 
 Or remove columns...
 
 ```{r}
-
+world |> 
+  select(-subregion, -area_km2)
 ```
 
 Or select AND rename columns
 
 ```{r}
-
+world |> 
+  select(name = name_long, population = pop)
 ```
 
 Or filter observations based on variables
 
 ```{r}
+world1 <- world |> 
+  filter(area_km2 < 10000)
 
+summary(world1$area_km2)
 
+world2 <- world |> 
+  filter(lifeExp >= 80)
+
+nrow(world2)
 ```
 
 ### Chaining commands with pipes
@@ -225,7 +284,11 @@ Because we can use `dplyr` functions with `sf` objects, we can chain together co
 Let's try to find the country in Asia with the highest life expectancy
 
 ```{r}
-
+world |> 
+  st_drop_geometry() |> 
+  filter(continent == "Asia") |> 
+  select(name_long, continent, lifeExp) |> 
+  slice_max(lifeExp)
 ```
 
 ### Vector attribute aggregation
@@ -235,19 +298,38 @@ Aggregation is the process of summarizing data with one or more 'grouping' varia
 Let's try to find the total population within each continent:
 
 ```{r}
-
+world |> 
+  group_by(continent) |> 
+  summarize(population = sum(pop, na.rm = TRUE)) |> 
+  st_drop_geometry()
 ```
 
 Let's also find the total area and number of countries in each continent:
 
 ```{r}
-
+world |> 
+  group_by(continent) |> 
+  summarize(
+    population = sum(pop, na.rm = TRUE), 
+    area_km2 = sum(area_km2, na.rm = TRUE),
+    n_countries = n()
+  ) |> 
+    st_drop_geometry()
 ```
 
 Building on this, let's find the population density of each continent, find the continents with highest density and arrange by the number of countries. We'll drop the geometry column to speed things up.
 
 ```{r}
-
+world |> 
+  st_drop_geometry() |> 
+  group_by(continent) |> 
+  summarize(
+    population = sum(pop, na.rm = TRUE), 
+    area_km2 = sum(area_km2, na.rm = TRUE),
+    n_countries = n()) |>
+  mutate(density = round(population / area_km2)) |> 
+  slice_max(density, n = 3) |> 
+  arrange(desc(n_countries))
 ```
 
 ## 5. Joins with vector attributes
@@ -257,65 +339,70 @@ A critical part of many data science workflows is combining data sets based on c
 Let's start by looking a data set on national coffee production from the `spData` package:
 
 ```{r}
-
+coffee_data <- spData::coffee_data
 ```
 
 It appears that `coffee_data` contains information on the amount of coffee produced in 2016 and 2017 from a subset of countries.
 
 ```{r}
-
+dim(coffee_data)
 ```
 
 The coffee production dataset does not include any spatial information, so If we wanted to make a map of coffee production, we would need to combine `coffee_data` with the `world` dataset. We do this by joining based on countries' names.
 
 ```{r}
+world_coffee <- left_join(world, coffee_data, by = "name_long")
 
+names(world_coffee)
 ```
 
 And plot what this looks like...
 
 ```{r}
-
-
+tm_shape(world_coffee) +
+  tm_fill(
+    "coffee_production_2017", 
+    fill.legend = tm_legend(title = "Coffee Production (2017)")
+    )
 ```
 
 By using a left join, our previous result added the coffee production information onto all countries of the world. If we just wanted to keep countries that do have coffee data, we could use an inner join:
 
 ```{r}
-
+world_coffee_inner <- inner_join(world, coffee_data, by = "name_long")
 ```
 
 Let's build ourselves a warning message to make sure we don't lose any data because of incomplete matches.
 
 ```{r}
-
-
+if (nrow(world_coffee_inner) != nrow(coffee_data)){
+  warning("inner join does not match original data. Potential data loss during join")
+}
 ```
 
 It looks like we lost some countries with coffee data, so let's figure out what's going on. We can find rows that didn't match using the `setdiff()` function.
 
 ```{r}
-
+setdiff(coffee_data$name_long, world$name_long)
 ```
 
 We see that one of the issues is that the two data sets use different naming conventions for the Democratic Republic of the Congo. We can use a string matching function to figure out what the DRC is called in the world data set.
 
 ```{r}
-
-
+# Search for the DRC in the world dataset 
+drc <- stringr::str_subset(world$name_long, "Dem*.+Congo")
+drc
 ```
 
 Now we can update the coffee data set with the matching name for the DRC:
 
 ```{r include=TRUE}
-
+coffee_data$name_long[stringr::str_detect(coffee_data$name_long, "Congo")] <- drc
 ```
 
 And we can try the inner join again and hopefully the DRC now matches:
 
 ```{r}
-
-
 # update warning message conditional to include the mismatch for "others"
 if (nrow(world_coffee_inner) != nrow(coffee_data) & setdiff(coffee_data$name_long, world_coffee_inner$name_long) != "Others") {
   warning("inner join does not match original data. potential data loss during join")
