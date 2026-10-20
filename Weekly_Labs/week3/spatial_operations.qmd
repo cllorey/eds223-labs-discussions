@@ -602,7 +602,6 @@ sym_difference <- st_sym_difference(x, y)
 
 
 ```{r}
-
 x <- x %>% st_set_crs(4326)
 y <- y %>% st_set_crs(4326)
 bbox <- st_union(x, y)
@@ -610,39 +609,33 @@ bbox <- st_union(x, y)
 map1 <- tm_shape(x, bbox = bbox) +
   tm_borders(col = "red") +
   tm_shape(y) +
-  tm_borders(col = "blue")+ 
-  tm_layout(meta.margins = c(.2, 0, 0, 0))
+  tm_borders(col = "blue")
 
 map2 <- map1 +
   tm_shape(intersection, bbox = bbox) +
   tm_fill(col = "purple") +
-  tm_title(text = "st_intersection()")+ 
-  tm_layout(meta.margins = c(.2, 0, 0, 0))
+  tm_title(text = "st_intersection()")
 
 map3 <- map1 +
   tm_shape(difference_x_y, bbox = bbox) +
   tm_fill(col = "purple") +
-  tm_title(text = "st_difference(x,y)")+ 
-  tm_layout(meta.margins = c(.2, 0, 0, 0))
+  tm_title(text = "st_difference(x,y)")
 
 
 map4 <- map1 +
   tm_shape(difference_y_x, bbox = bbox) +
   tm_fill(col = "purple") +
-  tm_title(text = "st_difference(y,x)")+
-  tm_layout(meta.margins = c(.2, 0, 0, 0))
+  tm_title(text = "st_difference(y,x)")
 
 map5 <- map1 +
   tm_shape(union, bbox = bbox) +
   tm_fill(col = "purple") +
-  tm_title(text = "st_union()")+ 
-  tm_layout(meta.margins = c(.2, 0, 0, 0))
+  tm_title(text = "st_union()")
 
 map6 <- map1 +
   tm_shape(sym_difference, bbox = bbox) +
   tm_fill(col = "purple") +
-  tm_title(text = "st_sym_diffference()")+ 
-  tm_layout(meta.margins = c(.2, 0, 0, 0))
+  tm_title(text = "st_sym_diffference()")
 
 tmap_arrange(map1, map2, map3, map4, map5, map6, nrow = 2)
 ```
@@ -671,7 +664,30 @@ p_xy2 <- p %>%
 
 # third approach: st_intersection()
 p_xy3 = st_intersection(p, x_and_y)
+```
 
+```{r}
+map2 <- map1 +
+  tm_shape(p) +
+  tm_dots(alpha = 0.5) +
+  tm_layout(main.title = "original")
+
+map3 <- map2 +
+  tm_shape(p_xy1) +
+  tm_symbols(col = "purple", size = 0.2) +
+  tm_layout(main.title = "bracket subsetting")
+
+map4 <- map2 +
+  tm_shape(p_xy2) +
+  tm_symbols(col = "purple", size = 0.2) +
+  tm_layout(main.title = "st_filter()")
+
+map5 <- map2 +
+  tm_shape(p_xy3) +
+  tm_symbols(col = "purple", size = 0.2) +
+  tm_layout(main.title = "st_intersection()")
+
+tmap_arrange(map2, map3, map4, map5, nrow = 2)
 ```
 
 
@@ -696,6 +712,24 @@ nz_pos <- st_point_on_surface(nz)
 seine_pos <- st_point_on_surface(seine)
 ```
 
+```{r}
+map1 <- tm_shape(nz) +
+  tm_polygons() +
+  tm_shape(nz_centroid) +
+  tm_symbols(fill = "red", fill_alpha = 0.5) +
+  tm_shape(nz_pos) +
+  tm_symbols(fill = "blue", fill_alpha = 0.5)
+
+map2 <- tm_shape(seine) +
+  tm_lines() +
+  tm_shape(seine_centroid) +
+  tm_symbols(fill = "red", fill_alpha = 0.5) +
+  tm_shape(seine_pos) +
+  tm_symbols(fill = "blue", fill_alpha = 0.5)
+
+tmap_arrange(map1, map2, nrow = 1)
+```
+
 ### Simplification
 We may also want to simplify a `geometry` to make it easier to plot or take up less storage. There are several different algorithms for simplifying geometries, check out [*Geocomputation with R*](https://r.geocompx.org/geometry-operations#simplification) for more examples. The `sf` packages uses the Douglas-Peucker algorithm within the `st_simplify()` function.
 
@@ -705,7 +739,15 @@ seine_simple <- st_simplify(seine, dTolerance = 2000)  # 2000 m
 ```
 
 ```{r}
+map1 <- tm_shape(seine) +
+  tm_lines() +
+  tm_title("original")
 
+map2 <- tm_shape(seine_simple) +
+  tm_lines() +
+  tm_title("st_simplify()")
+
+tmap_arrange(map1, map2, nrow = 1)
 ```
 
 # Summary of new functions
