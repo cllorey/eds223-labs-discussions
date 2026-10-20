@@ -650,11 +650,27 @@ tmap_arrange(map1, map2, map3, map4, map5, map6, nrow = 2)
 Now let's see how we could use these updated geometries for filtering. Extending this simple example, we'll create 100 random points. We want to find the points that intersect both `x` and `y`. We have a few different approaches that all produce the same results.
 
 ```{r}
+# create random points
+bb <- st_bbox(bbox) # create bounding box of x and y
+box <- st_as_sfc(bb)
+p <- st_sample(x = box, size = 100) %>% # randomly sample the bounding box
+  st_as_sf()
+
+# find intersection of x and y
+x_and_y <- st_intersection(x, y)
+x_and_y <- st_make_valid(x_and_y)
 
 
-```
+# filter points
+# first approach: bracket subsetting
+p_xy1 = p[x_and_y, ]
 
-```{r}
+# second approach: st_filter()
+p_xy2 <- p %>%
+  st_filter(., x_and_y)
+
+# third approach: st_intersection()
+p_xy3 = st_intersection(p, x_and_y)
 
 ```
 
@@ -673,11 +689,11 @@ Sometimes the geographic centroid may fall outside of the boundaries of the obje
 Let's inspect a few examples!
 
 ```{r}
+nz_centroid <- st_centroid(nz)
+seine_centroid <- st_centroid(seine)
 
-```
-
-```{r}
-
+nz_pos <- st_point_on_surface(nz)
+seine_pos <- st_point_on_surface(seine)
 ```
 
 ### Simplification
@@ -685,7 +701,7 @@ We may also want to simplify a `geometry` to make it easier to plot or take up l
 
 Let's see an example!
 ```{r}
-
+seine_simple <- st_simplify(seine, dTolerance = 2000)  # 2000 m
 ```
 
 ```{r}
