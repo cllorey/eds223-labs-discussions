@@ -162,3 +162,162 @@ labs <- c("Bilinear", "Near", "Cubic", "Cubic Spline", "Lanczos")
 
 plot(srtm_resampl_all, main = labs)
 ```
+
+## Redoing everthing using stars instead of terra: 
+
+```{r}
+dem <- stars::read_stars(system.file("raster/dem.tif", package = "spDataLarge"))
+landsat <- stars::read_stars(system.file("raster/landsat.tif", package = "spDataLarge"))
+srtm <- stars::read_stars(system.file("raster/srtm.tif", package = "spDataLarge"))
+```
+
+```{r}
+class(srtm)   # should be "stars" in Part 2
+```
+
+
+```{r}
+# A stars object is a list of arrays (attributes) plus a set of dimensions
+dem
+```
+
+
+```{r}
+landsat # Note the third dimension, "band"
+```
+
+## Explore elevation at Mt. Mongon Peru 
+
+
+```{r}
+# Extract the array of values from the first (and only) attribute
+dem_values <- as.vector(dem[[1]])
+
+hist(dem_values,
+     main = "Digital Elevation Model Distribution",
+     xlab = "Value")
+```
+
+
+```{r}
+boxplot(dem_values,
+        main = "Digital Elevation Model Distribution",
+        ylab = "Value")
+```
+
+
+```{r}
+# Reclassify by cutting values into intervals, returning a factor raster
+dem_rcl <- cut(dem,
+               breaks = c(-Inf, 300, 500, Inf), # -Inf to 300, 300 to 500, 500 to Inf
+               labels = c("low", "medium", "high"))
+
+plot(dem_rcl, main = "Reclassified elevation")
+```
+
+
+```{r}
+# Calculate mean elevation for each category using original DEM values
+elevation_mean <- tibble(elevation = as.vector(dem[[1]]),
+                         cats = factor(as.vector(dem_rcl[[1]]), levels = levels(dem_rcl[[1]]))) %>%
+  group_by(cats) %>%
+  summarise(mean_elevation = mean(elevation, na.rm = TRUE))
+elevation_mean
+```
+
+
+```{r}
+# Polygonize the reclassified raster, merging cells of the same class
+dem_polys <- sf::st_as_sf(dem_rcl, merge = TRUE) %>%
+  group_by(dem.tif) %>%
+  summarise() # Dissolve into one (multi)polygon per class
+
+# Compute the mean of DEM values falling inside each polygon
+aggregate(dem, by = dem_polys, FUN = mean) %>%
+  sf::st_as_sf() %>%
+  mutate(cats = dem_polys$dem.tif)
+```
+
+## Explore NDVI and NDWI at Zion National Park
+
+```{r}
+scale_factor <- 0.0000275
+offset <- 0.2
+
+# Arithmetic on a stars object is applied to every grid cell
+landsat_scaled <- landsat * scale_factor + offset
+
+ndwi_fun <- function(green, nir){
+    (green - nir)/(green + nir)
+}
+
+ndvi_fun <- function(nir, red){
+  (nir - red)/(nir + red)
+}
+
+# Split the "band" dimension into attributes (X1 = blue, X2 = green, X3 = red, X4 = NIR)
+landsat_bands <- split(landsat_scaled, "band")
+landsat_bands
+
+ndwi_rast <- landsat_bands %>%
+  transmute(ndwi = ndwi_fun(green = X2, nir = X4))
+
+ndvi_rast <- landsat_bands %>%
+  transmute(ndvi = ndvi_fun(nir = X4, red = X3))
+
+plot(ndwi_rast,
+     main = "Zion National Park NDWI")
+
+plot(ndvi_rast,
+     main = "Zion National Park NDVI")
+
+combine <- c(ndvi_rast, ndwi_rast) # Combine as two attributes
+
+plot(merge(combine)) # Merge attributes into a dimension to plot side by side
+
+# Calculate correlation between the two attributes
+cor(as.vector(combine$ndvi), as.vector(combine$ndwi), use = "complete.obs")
+```
+
+## Change resolution of elevation at Zion National Park 
+
+
+```{r}
+plot(srtm)
+
+# Create empty template from the bounding box of srtm
+rast_template <- stars::st_as_stars(sf::st_bbox(srtm), dx = 0.01, dy = 0.01)
+
+# use_gdal = TRUE is needed for methods other than nearest neighbor
+srtm_resampl1 <- stars::st_warp(srtm, dest = rast_template, method = "bilinear", use_gdal = TRUE, no_data_value = -9999)
+srtm_resampl2 <- stars::st_warp(srtm, dest = rast_template, method = "near", use_gdal = TRUE, no_data_value = -9999)
+srtm_resampl3 <- stars::st_warp(srtm, dest = rast_template, method = "cubic", use_gdal = TRUE, no_data_value = -9999)
+srtm_resampl4 <- stars::st_warp(srtm, dest = rast_template, method = "cubicspline", use_gdal = TRUE, no_data_value = -9999)
+srtm_resampl5 <- stars::st_warp(srtm, dest = rast_template, method = "lanczos", use_gdal = TRUE, no_data_value = -9999)
+
+srtm_resampl_all <- c(srtm_resampl1, srtm_resampl2, srtm_resampl3, srtm_resampl4, srtm_resampl5)
+names(srtm_resampl_all) <- c("Bilinear", "Near", "Cubic", "Cubic Spline", "Lanczos")
+
+plot(merge(srtm_resampl_all))
+```
+
+
+## terra vs. stars: what’s the difference?
+Note: The written comparison below is based on Chapter 7: Introduction to sf and stars in Spatial Data Science: With Applications in R by Edzer Pebesma and Roger Bivand.
+
+Both packages gave the same answers above (identical class means and an NDVI–NDWI correlation of about -0.91). The difference is in how each package represents raster data.
+
+### terra (successor of raster)
+
+- raster, and now its successor terra, has long been the main R package for powerful, flexible, and scalable raster analysis.
+- Its data model is a 2D regular raster, or a set (stack) of raster layers. This fits a static “GIS view” of the world, where each theme is a layer.
+- For data that change over time, a layer stack means the user has to keep track of which layer represents what (e.g., which layer is which date or band).
+
+### stars (spatiotemporal arrays)
+
+- stars was written to support raster and vector data cubes. Raster layers, raster stacks, and feature time series are special cases of a data cube.
+- A stars object is a list of arrays (attributes) plus a table of dimensions (x, y, band, time, …) with fields like offset, delta, and refsys. Time is just another dimension, so time-varying raster stacks are represented directly.
+- It handles regular grids as well as rotated, sheared, rectilinear, and curvilinear rasters, and arrays whose spatial dimension is a set of geometries (vector data cubes).
+- It is tightly integrated with sf: functions share the st_ prefix, rasters can be cropped or aggregated with sf objects, and st_as_sf() converts back to sf.
+- It follows tidyverse design: filter(), slice(), mutate(), and transmute() work on data cubes.
+- It aims to scale beyond local disk size; stars_proxy objects are essentially pointers to files that are only read when needed.
