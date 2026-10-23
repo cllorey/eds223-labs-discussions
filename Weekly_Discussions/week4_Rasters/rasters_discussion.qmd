@@ -1,0 +1,164 @@
+
+
+```{r}
+# Load packages
+library(tidyverse)
+library(spData)
+library(spDataLarge)
+library(sf)
+library(stars)
+library(terra)
+library(tmap)
+```
+
+
+```{r}
+dem <- terra::rast(system.file("raster/dem.tif", package = "spDataLarge"))
+landsat <- terra::rast(system.file("raster/landsat.tif", package = "spDataLarge"))
+srtm <- terra::rast(system.file("raster/srtm.tif", package = "spDataLarge"))
+```
+
+## Explore elevation at Mt. Mongón, Perú
+
+Make a boxplot and histogram of elevation at Mt. Mongón, Perú
+```{r}
+hist(dem,
+     main = 'Digital Elevation Model Distribution',
+     xlab = 'Value')
+
+
+boxplot(dem,
+        main = 'Digital Elevation Model Distribution',
+        ylab = 'Value')
+```
+
+Reclassify dem and compute the mean for the three classes:
+- Low, where elevation is less than 300
+- Medium
+- High, where elevation is greater than 500
+
+```{r}
+# What I did:
+
+# create reclassification matrix
+rcl_dem <- matrix(c(0, 300, 1, 
+                    300, 500, 2,
+                    500, 1500, 3),
+                    ncol = 3, byrow = TRUE)
+
+# use reclassification matrix to reclassify elevation raster
+reclass_dem <- classify(dem, rcl = rcl_dem)
+
+# change reclassified values into factors
+values(reclass_dem) <- as.factor(values(reclass_dem))
+
+# visualize
+map1 <- tm_shape(dem) + 
+    tm_raster(col.legend = tm_legend(title = 'Elevation')) +
+    tm_title(text = "Original")
+
+map2 <- tm_shape(reclass_dem) +
+    tm_raster(col.legend = tm_legend(title = 'Elevation')) +
+    tm_title(text = "Reclassified")
+
+tmap_arrange(map1, map2, nrow = 1)
+
+# Lab solution:
+
+# Define a reclassification matrix
+rcl <- matrix(c(-Inf, 300, 0, # values -Inf to 300 = 0
+                300, 500, 1,  # values 300 to 500 = 1
+                500, Inf, 2), # values 500 to Inf = 2
+              ncol = 3, byrow = TRUE)
+
+# Apply the matrix to reclassify the raster, making all cells 0 or 1 or 2
+dem_rcl <- terra::classify(dem, rcl = rcl)
+
+# Assign labels to the numerical categories
+levels(dem_rcl) <- tibble::tibble(id = 0:2, 
+                                  cats = c("low", "medium", "high"))
+
+# Calculate mean elevation for each category using original DEM values
+elevation_mean <- terra::zonal(dem, dem_rcl, fun = "mean")
+elevation_mean
+
+# My add on - visualizing
+
+values(dem_rcl) <- as.factor(values(dem_rcl))
+
+map3 <- tm_shape(dem_rcl) +
+    tm_raster(col.legend = tm_legend(title = 'Elevation')) +
+    tm_title(text = "Reclassified lab solution")
+
+tmap_arrange(map1, map3, nrow = 1)
+
+```
+
+## Explore NDVI and NDWI at Zion National Park
+First, correct the scale across all grid cells and then apply the following functions at each grid cell:
+
+NDWI = (green-NIR) / (green+NIR)
+ 
+NDVI = (NIR-red) /  (NIR+red)
+
+Calculate the Normalized Difference Vegetation Index (NDVI) at Zion National Park
+Calculate the Normalized Difference Water Index (NDWI) at Zion National Park
+Find a correlation between NDVI and NDWI at Zion National Park
+
+
+```{r}
+scale_factor <- 0.0000275
+offset <- 0.2
+
+
+scale_function <- function(x) {
+  x * scale_factor + offset
+}
+
+landsat_scaled <- terra::app(landsat, fun = scale_function)
+
+ndwi_fun <- function(green, nir){
+    (green - nir) / (green + nir)
+}
+
+ndvi_fun <- function(nir, red){
+    (nir - red) / (nir + red)
+}
+
+ndwi_rast <- terra::lapp(landsat_scaled[[c(2,4)]], fun = ndwi_fun)
+
+ndvi_rast <- terra::lapp(landsat_scaled[[c(4,3)]], fun = ndvi_fun)
+
+plot(ndwi_rast, main = "Zion National Park NDWI")
+
+plot(ndvi_rast,
+     main = "Zion National Park NDVI")
+
+combine <- c(ndvi_rast, ndwi_rast) # Stack rasters
+plot(combine, main = c("NDVI", "NDWI"))
+
+# Calculate correlation between raster layers 
+terra::layerCor(combine, fun = cor)
+```
+
+## Change resolution of elevation at Zion National Park 
+
+Use all the methods available to change the resolution of elevation at Zion National Park to 0.01 by 0.01 degrees
+Note: The srtm raster has a resolution of 0.00083 by 0.00083 degrees
+
+```{r}
+plot(srtm)
+
+rast_template <- terra::rast(terra::ext(srtm), res = 0.01) # Create empty template
+
+srtm_resampl1 <- terra::resample(srtm, y = rast_template, method = "bilinear")
+srtm_resampl2 <- terra::resample(srtm, y = rast_template, method = "near")
+srtm_resampl3 <- terra::resample(srtm, y = rast_template, method = "cubic")
+srtm_resampl4 <- terra::resample(srtm, y = rast_template, method = "cubicspline")
+srtm_resampl5 <- terra::resample(srtm, y = rast_template, method = "lanczos")
+
+srtm_resampl_all <- c(srtm_resampl1, srtm_resampl2, srtm_resampl3, srtm_resampl4, srtm_resampl5)
+labs <- c("Bilinear", "Near", "Cubic", "Cubic Spline", "Lanczos")
+
+plot(srtm_resampl_all, main = labs)
+```
