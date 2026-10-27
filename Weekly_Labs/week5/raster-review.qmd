@@ -272,7 +272,7 @@ The cut points below follow the de Martonne (1926) classification scheme:
 | > 55 | Humid |
 
 ```{r}
-rcl <- matrix(c(
+rcl <- matrix(c( # upper bound is inclusive by default unless you specify
    0,   5,  1,
    5,  15,  2,
   15,  25,  3,
@@ -371,7 +371,6 @@ bind_cols(temp_by_zone, prec_by_zone[, 2]) |>
   ) |>
   kable_styling(bootstrap_options = "striped")
 ```
-
 
 ---
 
