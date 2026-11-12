@@ -266,6 +266,27 @@ tm_shape(landsat_scaled) +
   tm_scalebar(position = c("left", "bottom"))
 ```
 
+Let's stratch our true color image:
+
+```{r}
+plotRGB(landsat_scaled, r = 3, g = 2, b = 1, stretch = "lin")
+```
+
+Gamma correction: 
+
+```{r}
+landsat_gamma <- landsat_scaled[[c('red', 'green', 'blue')]]^0.4
+```
+
+```{r}
+tm_shape(landsat_gamma) +
+  tm_rgb(col = tm_vars(c('red', 'green', 'blue'), multivariate = TRUE),
+         col.scale = tm_scale_rgb(max_color_value = 1)
+  ) + 
+  tm_title("True Color (Gamma = 0.4)") +
+  tm_scalebar(position = c("left", "bottom"))
+```
+
 ## 6. False color imagery
 
 A **false color composite** assigns satellite bands beyond the visible spectrum (or in a non-standard order) to the display channels, letting us highlight features that are difficult to distinguish in true color.
