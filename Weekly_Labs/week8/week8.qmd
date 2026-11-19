@@ -209,7 +209,7 @@ We will load the shapefile identifying locations within our study area as contai
 
 ```{r}
 # read in and transform training data
-training_data <- st_read(here::here( "data", "trainingdata.shp")) %>%
+training_data <- st_read("/Users/courtneylorey/Desktop/GitHub/eds223/eds223-labs-discussions/Weekly_Labs/week8/data/trainingdata.shp") %>%
   st_transform(., crs = crs(landsat))
 ```
 
