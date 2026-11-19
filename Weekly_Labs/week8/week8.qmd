@@ -122,7 +122,7 @@ To create a raster stack, we will create a list of the files that we would like 
 
 ```{r}
 # list files for each band, including the full file path
-filelist <- list.files("/Users/courtneylorey/Desktop/GitHub/eds223/eds223-labs-discussions/Weekly_Labs/week8/data/landsat-data", full.names = TRUE)
+filelist <- list.files("/Users/courtneylorey/Desktop/GitHub/eds223/eds223-labs-discussions/week8/data/landsat-data", full.names = TRUE)
 
 # read in and store as a raster stack
 landsat <- rast(filelist)
@@ -140,7 +140,7 @@ We want to constrain our analysis to the southern portion of Santa Barbara Count
 
 ```{r}
 # read in shapefile for southern portion of SB county
-SB_county_south <- st_read("/Users/courtneylorey/Desktop/GitHub/eds223/eds223-labs-discussions/Weekly_Labs/week8/data/SB_county_south.shp") %>%
+SB_county_south <- st_read("/Users/courtneylorey/Desktop/GitHub/eds223/eds223-labs-discussions/week8/data/SB_county_south.shp") %>%
       st_transform(SB_county_south, crs = crs(landsat))
 ```
 
@@ -209,7 +209,7 @@ We will load the shapefile identifying locations within our study area as contai
 
 ```{r}
 # read in and transform training data
-training_data <- st_read("/Users/courtneylorey/Desktop/GitHub/eds223/eds223-labs-discussions/Weekly_Labs/week8/data/trainingdata.shp") %>%
+training_data <- st_read("/Users/courtneylorey/Desktop/GitHub/eds223/eds223-labs-discussions/week8/data/trainingdata.shp") %>%
   st_transform(., crs = crs(landsat))
 ```
 
@@ -417,6 +417,7 @@ We'll calculate the mean reflectance values for each band within each cluster. B
 - **Low NIR, high blue** → likely water (water absorbs NIR)
 - **High values across all bands** → likely soil/dead grass (high overall reflectance)
 - **Moderate values** → likely urban areas
+
 
 ```{r}
 #| warning: false
